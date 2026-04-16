@@ -72,13 +72,13 @@ Dashboard (HTML + JavaScript)
 
 ## 📁 Project Structure
 
-mini-siem/
-│
-├── siem_simulator.py
-├── siem_logs.jsonl
-├── dashboard.html
-├── README.md
-└── LICENSE
+mini-siem/  
+│  
+├── siem_simulator.py  
+├── siem_logs.jsonl  
+├── dashboard.html  
+├── README.md  
+└── LICENSE  
 
 ---
 
