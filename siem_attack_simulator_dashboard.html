@@ -1,0 +1,344 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font-mono, monospace); background: #0a0e1a; color: #c8d6e5; font-size: 13px; }
+.shell { display: flex; flex-direction: column; height: 100vh; min-height: 600px; }
+.topbar { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; background: #0d1321; border-bottom: 1px solid #1e2d42; flex-shrink: 0; }
+.brand { color: #4fc3f7; font-weight: bold; font-size: 14px; letter-spacing: 2px; }
+.status-dot { width: 8px; height: 8px; border-radius: 50%; background: #4caf50; display: inline-block; margin-right: 6px; animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+.metrics { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; padding: 10px 16px; background: #0d1321; border-bottom: 1px solid #1e2d42; flex-shrink: 0; }
+.metric { background: #111827; border: 1px solid #1e2d42; border-radius: 6px; padding: 8px 12px; }
+.metric-label { font-size: 10px; color: #607080; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+.metric-val { font-size: 20px; font-weight: bold; }
+.m-total { color: #4fc3f7; } .m-crit { color: #f44336; } .m-high { color: #ff9800; } .m-med { color: #ffeb3b; } .m-low { color: #4caf50; }
+.main { display: grid; grid-template-columns: 1fr 320px; flex: 1; overflow: hidden; gap: 0; }
+.log-panel { display: flex; flex-direction: column; overflow: hidden; }
+.panel-head { padding: 8px 14px; background: #0d1321; border-bottom: 1px solid #1e2d42; border-right: 1px solid #1e2d42; font-size: 11px; color: #607080; text-transform: uppercase; letter-spacing: 1px; display: flex; align-items: center; justify-content: space-between; flex-shrink:0; }
+.log-stream { flex: 1; overflow-y: auto; padding: 4px 0; border-right: 1px solid #1e2d42; }
+.log-stream::-webkit-scrollbar { width: 4px; }
+.log-stream::-webkit-scrollbar-track { background: #0a0e1a; }
+.log-stream::-webkit-scrollbar-thumb { background: #1e2d42; }
+.log-entry { display: flex; align-items: flex-start; gap: 8px; padding: 4px 14px; border-bottom: 1px solid #0d1321; transition: background 0.2s; }
+.log-entry:hover { background: #111827; }
+.log-entry.new { animation: flashin 0.5s ease; }
+@keyframes flashin { from { background: #1a2a3a; } to { background: transparent; } }
+.sev { padding: 2px 6px; border-radius: 3px; font-size: 10px; font-weight: bold; min-width: 44px; text-align: center; flex-shrink: 0; margin-top: 1px; }
+.sev.CRITICAL { background: #3a0a0a; color: #f44336; border: 1px solid #f4433640; }
+.sev.HIGH { background: #2a1a00; color: #ff9800; border: 1px solid #ff980040; }
+.sev.MEDIUM { background: #2a2500; color: #ffeb3b; border: 1px solid #ffeb3b40; }
+.sev.LOW { background: #0a1a0a; color: #4caf50; border: 1px solid #4caf5040; }
+.log-time { color: #405060; font-size: 11px; flex-shrink: 0; margin-top: 2px; }
+.log-msg { flex: 1; line-height: 1.5; }
+.log-src { color: #4fc3f7; font-size: 11px; }
+.log-type { color: #ab47bc; font-size: 11px; }
+.log-detail { color: #90a4ae; }
+.side { display: flex; flex-direction: column; overflow: hidden; }
+.alerts-panel { flex: 1; overflow-y: auto; }
+.alerts-panel::-webkit-scrollbar { width: 3px; }
+.alerts-panel::-webkit-scrollbar-thumb { background: #1e2d42; }
+.alert-card { margin: 8px; padding: 10px 12px; background: #111827; border-radius: 6px; border-left: 3px solid #607080; }
+.alert-card.CRITICAL { border-left-color: #f44336; }
+.alert-card.HIGH { border-left-color: #ff9800; }
+.alert-card.MEDIUM { border-left-color: #ffeb3b; }
+.alert-card.LOW { border-left-color: #4caf50; }
+.alert-title { font-size: 12px; font-weight: bold; color: #c8d6e5; margin-bottom: 4px; }
+.alert-meta { font-size: 11px; color: #607080; }
+.attack-type-tag { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 10px; background: #1e2d42; color: #90caf9; margin-right: 4px; }
+.controls { padding: 10px 16px; background: #0d1321; border-top: 1px solid #1e2d42; display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+.btn { padding: 6px 14px; border: 1px solid #1e2d42; background: #111827; color: #90a4ae; border-radius: 4px; cursor: pointer; font-size: 12px; font-family: monospace; transition: all 0.15s; }
+.btn:hover { background: #1e2d42; color: #c8d6e5; }
+.btn.active { background: #1a3a1a; border-color: #4caf50; color: #4caf50; }
+.btn.danger { border-color: #f4433640; color: #f44336; }
+.btn.danger:hover { background: #3a0a0a; }
+.speed-label { font-size: 11px; color: #607080; margin-left: 8px; }
+select.spd { background: #111827; border: 1px solid #1e2d42; color: #90a4ae; padding: 5px 8px; border-radius: 4px; font-size: 12px; font-family: monospace; }
+.filter-bar { padding: 6px 16px; background: #0a0e1a; border-bottom: 1px solid #1e2d42; display: flex; gap: 6px; flex-shrink:0; }
+.filt { padding: 3px 10px; border-radius: 3px; border: 1px solid #1e2d42; background: transparent; color: #607080; cursor: pointer; font-size: 11px; font-family: monospace; }
+.filt:hover,.filt.on { background: #1e2d42; color: #c8d6e5; }
+.filt.c-all.on { border-color: #4fc3f7; color: #4fc3f7; }
+.filt.c-crit.on { border-color: #f44336; color: #f44336; }
+.filt.c-high.on { border-color: #ff9800; color: #ff9800; }
+.filt.c-med.on { border-color: #ffeb3b; color: #ffeb3b; }
+.filt.c-low.on { border-color: #4caf50; color: #4caf50; }
+.stat-row { padding: 8px 14px; border-top: 1px solid #1e2d42; flex-shrink:0; }
+.mini-bar { display: flex; gap: 4px; align-items: center; margin-top: 4px; }
+.bar-seg { height: 6px; border-radius: 2px; transition: width 0.5s; }
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="topbar">
+    <span class="brand">⬡ CYBER-SIEM v1.0</span>
+    <span><span class="status-dot"></span><span id="siem-status" style="font-size:12px;color:#4caf50;">MONITORING ACTIVE</span></span>
+    <span style="font-size:11px;color:#405060;" id="sys-time">--:--:--</span>
+  </div>
+
+  <div class="metrics">
+    <div class="metric"><div class="metric-label">Total Events</div><div class="metric-val m-total" id="m-total">0</div></div>
+    <div class="metric"><div class="metric-label">Critical</div><div class="metric-val m-crit" id="m-crit">0</div></div>
+    <div class="metric"><div class="metric-label">High</div><div class="metric-val m-high" id="m-high">0</div></div>
+    <div class="metric"><div class="metric-label">Medium</div><div class="metric-val m-med" id="m-med">0</div></div>
+    <div class="metric"><div class="metric-label">Low</div><div class="metric-val m-low" id="m-low">0</div></div>
+  </div>
+
+  <div class="main">
+    <div class="log-panel">
+      <div class="panel-head">
+        <span>Live log stream</span>
+        <span id="log-count" style="color:#4fc3f7;">0 entries</span>
+      </div>
+      <div class="filter-bar">
+        <button class="filt c-all on" onclick="setFilter('ALL',this)">ALL</button>
+        <button class="filt c-crit" onclick="setFilter('CRITICAL',this)">CRITICAL</button>
+        <button class="filt c-high" onclick="setFilter('HIGH',this)">HIGH</button>
+        <button class="filt c-med" onclick="setFilter('MEDIUM',this)">MEDIUM</button>
+        <button class="filt c-low" onclick="setFilter('LOW',this)">LOW</button>
+      </div>
+      <div class="log-stream" id="log-stream"></div>
+    </div>
+
+    <div class="side">
+      <div class="panel-head" style="border-right:none;">
+        <span>Alerts</span>
+        <span id="alert-count" style="color:#ff9800;">0 active</span>
+      </div>
+      <div class="alerts-panel" id="alerts-panel"></div>
+      <div class="stat-row">
+        <div style="font-size:10px;color:#607080;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Attack distribution</div>
+        <div id="atk-dist" style="display:flex;flex-direction:column;gap:6px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="btn active" id="btn-run" onclick="toggleRun()">■ STOP</button>
+    <button class="btn" onclick="clearLogs()">CLR</button>
+    <button class="btn" onclick="triggerAttack('BRUTE_FORCE')">+ Brute Force</button>
+    <button class="btn" onclick="triggerAttack('PORT_SCAN')">+ Port Scan</button>
+    <button class="btn" onclick="triggerAttack('SQL_INJECTION')">+ SQLi</button>
+    <button class="btn danger" onclick="triggerAttack('PRIVILEGE_ESCALATION')">+ PrivEsc</button>
+    <span class="speed-label">Speed:</span>
+    <select class="spd" id="speed" onchange="updateSpeed()">
+      <option value="2000">Slow</option>
+      <option value="800" selected>Normal</option>
+      <option value="300">Fast</option>
+    </select>
+  </div>
+</div>
+
+<script>
+const ATTACKS = {
+  BRUTE_FORCE: {
+    name: "Brute Force",
+    sevs: ["MEDIUM","HIGH","HIGH","CRITICAL"],
+    templates: [
+      (ip,u) => `Failed SSH login attempt for user '${u}' from ${ip} — attempt #${rand(3,50)}`,
+      (ip,u) => `Multiple auth failures: user '${u}' — ${rand(5,30)} attempts in 60s from ${ip}`,
+      (ip,u) => `[AUTH] Brute force detected on SSH port 22 — source: ${ip} target: ${u}`,
+      (ip,u) => `ALERT: Account lockout triggered for '${u}' — ${rand(10,100)} failed attempts from ${ip}`,
+    ]
+  },
+  PORT_SCAN: {
+    name: "Port Scan",
+    sevs: ["LOW","MEDIUM","MEDIUM","HIGH"],
+    templates: [
+      (ip) => `SYN scan detected from ${ip} — ports 1-1024 swept`,
+      (ip) => `Nmap fingerprinting attempt from ${ip} — OS detection probe`,
+      (ip) => `STEALTH SCAN: ${ip} probing ${rand(100,1000)} ports in ${rand(1,10)}s`,
+      (ip) => `Aggressive port scan from ${ip} — service version detection active`,
+    ]
+  },
+  SQL_INJECTION: {
+    name: "SQLi",
+    sevs: ["HIGH","HIGH","CRITICAL","CRITICAL"],
+    templates: [
+      (ip) => `SQLi attempt in GET param — payload: ' OR '1'='1 — src: ${ip}`,
+      (ip) => `UNION-based injection detected on /login — src: ${ip}`,
+      (ip) => `Blind SQLi probe: sleep(5) payload detected from ${ip} — target: /api/search`,
+      (ip) => `[WAF] SQL injection blocked — stacked query attempt from ${ip} — potential data exfil`,
+    ]
+  },
+  PRIVILEGE_ESCALATION: {
+    name: "PrivEsc",
+    sevs: ["HIGH","CRITICAL","CRITICAL","CRITICAL"],
+    templates: [
+      (ip,u) => `Sudo privilege escalation attempt by '${u}' — unauthorized binary exec`,
+      (ip,u) => `CRITICAL: SUID binary abuse detected — user '${u}' attempting root shell`,
+      (ip,u) => `[AUDIT] Unexpected /etc/passwd modification attempt by UID ${rand(1000,9999)}`,
+      (ip,u) => `Kernel exploit attempt detected — CVE pattern match — process: ${rand(1000,9999)}`,
+    ]
+  },
+  LATERAL_MOVEMENT: {
+    name: "Lateral Mvmt",
+    sevs: ["MEDIUM","HIGH","HIGH","CRITICAL"],
+    templates: [
+      (ip) => `SMB lateral movement: ${ip} accessing \\\\192.168.${rand(1,5)}.${rand(1,254)}\\admin$`,
+      (ip) => `Pass-the-hash detected — NTLM relay from ${ip}`,
+      (ip) => `WMI remote exec from ${ip} to internal host — possible C2`,
+      (ip) => `[IDS] Mimikatz pattern detected — credential dumping from ${ip}`,
+    ]
+  },
+  RECON: {
+    name: "Recon",
+    sevs: ["LOW","LOW","MEDIUM","MEDIUM"],
+    templates: [
+      (ip) => `DNS zone transfer attempt from ${ip} — refused`,
+      (ip) => `User-agent: Nikto/2.x detected from ${ip} — web scanner`,
+      (ip) => `Automated crawl detected from ${ip} — ${rand(50,500)} requests in 10s`,
+      (ip) => `OSINT probe: robots.txt + /admin + /.git accessed from ${ip}`,
+    ]
+  }
+};
+
+const USERS = ['root','admin','ubuntu','pi','oracle','postgres','test','ankur','jenkins','deploy'];
+const IPS = () => `${rand(1,254)}.${rand(1,254)}.${rand(1,254)}.${rand(1,254)}`;
+function rand(a,b){return Math.floor(Math.random()*(b-a+1))+a;}
+
+let logs=[], alerts=[], counts={CRITICAL:0,HIGH:0,MEDIUM:0,LOW:0}, total=0;
+let running=true, filter='ALL', speed=800, timer=null;
+let atkCounts={};
+
+function ts(){const n=new Date();return n.toTimeString().slice(0,8);}
+
+function makeLog(type){
+  const atk = ATTACKS[type];
+  const idx = rand(0,atk.templates.length-1);
+  const sev = atk.sevs[idx];
+  const ip = IPS();
+  const user = USERS[rand(0,USERS.length-1)];
+  const msg = atk.templates[idx](ip,user);
+  return {id:Date.now()+Math.random(),ts:ts(),sev,type,msg,ip};
+}
+
+function addLog(log){
+  logs.unshift(log);
+  if(logs.length>300) logs.pop();
+  counts[log.sev]++;
+  total++;
+  atkCounts[log.type]=(atkCounts[log.type]||0)+1;
+
+  if(log.sev==='CRITICAL'||(log.sev==='HIGH'&&Math.random()>0.5)){
+    alerts.unshift({...log, alertId:Date.now()});
+    if(alerts.length>20) alerts.pop();
+    renderAlerts();
+  }
+  renderMetrics();
+  renderLog(log);
+  renderAtkDist();
+}
+
+function renderLog(log){
+  if(filter!=='ALL'&&filter!==log.sev) return;
+  const stream=document.getElementById('log-stream');
+  const el=document.createElement('div');
+  el.className='log-entry new';
+  el.innerHTML=`<span class="sev ${log.sev}">${log.sev}</span><span class="log-time">${log.ts}</span><div class="log-msg"><span class="log-type">[${ATTACKS[log.type].name}]</span> <span class="log-detail">${log.msg}</span></div>`;
+  if(stream.firstChild) stream.insertBefore(el,stream.firstChild);
+  else stream.appendChild(el);
+  if(stream.children.length>150) stream.removeChild(stream.lastChild);
+  document.getElementById('log-count').textContent=`${total} entries`;
+}
+
+function renderAlerts(){
+  const p=document.getElementById('alerts-panel');
+  p.innerHTML=alerts.slice(0,12).map(a=>`
+    <div class="alert-card ${a.sev}">
+      <div class="alert-title">${ATTACKS[a.type].name} — ${a.sev}</div>
+      <div class="alert-meta">${a.ts} &nbsp;<span class="attack-type-tag">${a.type}</span></div>
+      <div class="alert-meta" style="margin-top:4px;color:#90a4ae;font-size:11px;">${a.msg.slice(0,60)}...</div>
+    </div>`).join('');
+  document.getElementById('alert-count').textContent=`${alerts.length} active`;
+}
+
+function renderMetrics(){
+  document.getElementById('m-total').textContent=total;
+  document.getElementById('m-crit').textContent=counts.CRITICAL;
+  document.getElementById('m-high').textContent=counts.HIGH;
+  document.getElementById('m-med').textContent=counts.MEDIUM;
+  document.getElementById('m-low').textContent=counts.LOW;
+}
+
+const SEV_COLORS={CRITICAL:'#f44336',HIGH:'#ff9800',MEDIUM:'#ffeb3b',LOW:'#4caf50'};
+
+function renderAtkDist(){
+  const keys=Object.keys(atkCounts);
+  const mx=Math.max(...Object.values(atkCounts),1);
+  const el=document.getElementById('atk-dist');
+  el.innerHTML=keys.map(k=>`
+    <div style="display:flex;align-items:center;gap:6px;">
+      <span style="font-size:10px;color:#607080;width:80px;flex-shrink:0;">${ATTACKS[k].name}</span>
+      <div style="flex:1;background:#0d1321;border-radius:2px;height:6px;overflow:hidden;">
+        <div style="height:6px;border-radius:2px;background:#4fc3f7;width:${Math.round((atkCounts[k]/mx)*100)}%;transition:width 0.4s;"></div>
+      </div>
+      <span style="font-size:10px;color:#4fc3f7;min-width:24px;text-align:right;">${atkCounts[k]}</span>
+    </div>`).join('');
+}
+
+function randomAttack(){
+  const types=Object.keys(ATTACKS);
+  const weights=[3,3,2,1,2,4];
+  let r=Math.random()*15, i=0, acc=0;
+  for(;i<weights.length;i++){acc+=weights[i];if(r<=acc)break;}
+  return types[Math.min(i,types.length-1)];
+}
+
+function tick(){
+  if(!running) return;
+  const burst=Math.random()>0.7?rand(2,4):1;
+  for(let i=0;i<burst;i++) setTimeout(()=>addLog(makeLog(randomAttack())),i*120);
+  timer=setTimeout(tick,speed);
+}
+
+function toggleRun(){
+  running=!running;
+  const btn=document.getElementById('btn-run');
+  if(running){
+    btn.textContent='■ STOP'; btn.classList.add('active');
+    document.getElementById('siem-status').textContent='MONITORING ACTIVE';
+    document.getElementById('siem-status').style.color='#4caf50';
+    tick();
+  } else {
+    clearTimeout(timer);
+    btn.textContent='▶ START'; btn.classList.remove('active');
+    document.getElementById('siem-status').textContent='PAUSED';
+    document.getElementById('siem-status').style.color='#ff9800';
+  }
+}
+
+function triggerAttack(type){
+  for(let i=0;i<rand(3,7);i++) setTimeout(()=>addLog(makeLog(type)),i*80);
+}
+
+function setFilter(f,el){
+  filter=f;
+  document.querySelectorAll('.filt').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+  const stream=document.getElementById('log-stream');
+  stream.innerHTML='';
+  logs.filter(l=>filter==='ALL'||l.sev===filter).slice(0,150).forEach(l=>renderLog(l));
+}
+
+function clearLogs(){
+  logs=[];alerts=[];counts={CRITICAL:0,HIGH:0,MEDIUM:0,LOW:0};total=0;atkCounts={};
+  document.getElementById('log-stream').innerHTML='';
+  document.getElementById('alerts-panel').innerHTML='';
+  document.getElementById('atk-dist').innerHTML='';
+  renderMetrics();
+  document.getElementById('log-count').textContent='0 entries';
+  document.getElementById('alert-count').textContent='0 active';
+}
+
+function updateSpeed(){
+  speed=parseInt(document.getElementById('speed').value);
+}
+
+setInterval(()=>{document.getElementById('sys-time').textContent=ts();},1000);
+tick();
+</script>
+</body>
+</html>
